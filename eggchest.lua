@@ -1,8 +1,8 @@
 --[[
-    EGG TELEPORTER V4 (MOBILE)
-    ✅ المهمة: نقل اللاعب إلى مكان البيضة
-    ✅ الهدف: Root (Size: 4, 6, 4)
-    ✅ واجهة صغيرة وقابلة للسحب
+    EGG & CHEST TELEPORTER V5 (MOBILE)
+    ✅ المهام: انتقال للبيضة + صندوق 2 + صندوق 3
+    ✅ الأهداف: تخصيص بناءً على الحجم والاسم
+    ✅ واجهة قابلة للسحب للجوال
 ]]--
 
 local UserInputService = game:GetService("UserInputService")
@@ -11,15 +11,15 @@ local player = Players.LocalPlayer
 
 -- إنشاء الواجهة
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "EggTPGui"
+screenGui.Name = "EggChestTPGui"
 screenGui.Parent = player:WaitForChild("PlayerGui")
 screenGui.ResetOnSpawn = false
 
--- الإطار الرئيسي (صغير جداً)
+-- الإطار الرئيسي (تم زيادة الطول ليناسب 3 أزرار)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 140, 0, 90)
-mainFrame.Position = UDim2.new(0.5, -70, 0.5, -45)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.Size = UDim2.new(0, 150, 0, 170)
+mainFrame.Position = UDim2.new(0.5, -75, 0.5, -85)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Parent = screenGui
@@ -29,25 +29,34 @@ corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
-title.Text = "🥚 مجمع البيض"
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Text = "🥚 مجمع الهدايا"
+title.Size = UDim2.new(1, 0, 0, 35)
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.TextSize = 13
+title.TextSize = 14
 title.Parent = mainFrame
 
--- زر الانتقال
-local tpBtn = Instance.new("TextButton")
-tpBtn.Text = "انتقال للبيضة"
-tpBtn.Size = UDim2.new(0.85, 0, 0, 40)
-tpBtn.Position = UDim2.new(0.075, 0, 0.4, 0)
-tpBtn.BackgroundColor3 = Color3.fromRGB(85, 0, 255)
-tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpBtn.Font = Enum.Font.GothamBold
-tpBtn.TextSize = 14
-tpBtn.Parent = mainFrame
-Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 8)
+-- وظيفة عامة لإنشاء الأزرار بسهولة
+local function createButton(name, text, color, pos)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Text = text
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.Parent = mainFrame
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    return btn
+end
+
+-- الأزرار
+local eggBtn = createButton("EggBtn", "انتقال للبيضة", Color3.fromRGB(85, 0, 255), UDim2.new(0.05, 0, 0.22, 0))
+local chest2Btn = createButton("Chest2Btn", "انتقال صندوق 2", Color3.fromRGB(255, 140, 0), UDim2.new(0.05, 0, 0.48, 0))
+local chest3Btn = createButton("Chest3Btn", "انتقال صندوق 3", Color3.fromRGB(255, 85, 0), UDim2.new(0.05, 0, 0.74, 0))
 
 -- ==================== نظام السحب للجوال ====================
 local dragging, dragStart, startPos
@@ -68,40 +77,75 @@ UserInputService.InputEnded:Connect(function(input)
     dragging = false
 end)
 
--- ==================== وظيفة الانتقال للبيضة ====================
-tpBtn.MouseButton1Click:Connect(function()
+-- ==================== وظائف الانتقال ====================
+
+local function teleportTo(targetType)
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    
     local hrp = char.HumanoidRootPart
-    local eggSize = Vector3.new(4, 6, 4)
     local found = false
     
-    -- البحث في الماب عن البيضة
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name == "Root" then
-            -- التأكد من الحجم بدقة
-            local diff = (obj.Size - eggSize).Magnitude
-            if diff < 0.1 then
-                -- الانتقال أمام البيضة بمسافة 3 أمتار
-                hrp.CFrame = obj.CFrame * CFrame.new(0, 0, 3) 
-                found = true
-                break -- التوقف عند أول بيضة يجدها
+    if targetType == "Egg" then
+        -- البحث عن البيضة (Size: 4, 6, 4)
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name == "Root" and (obj.Size - Vector3.new(4, 6, 4)).Magnitude < 0.1 then
+                hrp.CFrame = obj.CFrame * CFrame.new(0, 0, 3)
+                found = true; break
             end
         end
+    elseif targetType == "Chest2" then
+        -- البحث عن صندوق 2 (Workspace.Chest2.Root)
+        local chest2 = workspace:FindFirstChild("Chest2")
+        if chest2 and chest2:FindFirstChild("Root") then
+            hrp.CFrame = chest2.Root.CFrame * CFrame.new(0, 0, 4)
+            found = true
+        end
+    elseif targetType == "Chest3" then
+        -- البحث عن صندوق 3 (Workspace.Chest3.Root)
+        local chest3 = workspace:FindFirstChild("Chest3")
+        if chest3 and chest3:FindFirstChild("Root") then
+            hrp.CFrame = chest3.Root.CFrame * CFrame.new(0, 0, 4)
+            found = true
+        end
     end
-    
-    if found then
-        tpBtn.Text = "✅ تم الانتقال"
-        tpBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    return found
+end
+
+-- برمجة ضغط الأزرار
+eggBtn.MouseButton1Click:Connect(function()
+    if teleportTo("Egg") then
+        eggBtn.Text = "✅ تم"
+        task.wait(1)
+        eggBtn.Text = "انتقال للبيضة"
     else
-        tpBtn.Text = "❌ لم يتم العثور"
-        tpBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        eggBtn.Text = "❌ غير موجود"
+        task.wait(1)
+        eggBtn.Text = "انتقال للبيضة"
     end
-    
-    task.wait(1)
-    tpBtn.Text = "انتقال للبيضة"
-    tpBtn.BackgroundColor3 = Color3.fromRGB(85, 0, 255)
 end)
 
-print("✅ Egg Teleporter Loaded!")
+chest2Btn.MouseButton1Click:Connect(function()
+    if teleportTo("Chest2") then
+        chest2Btn.Text = "✅ تم الصندوق 2"
+        task.wait(1)
+        chest2Btn.Text = "انتقال صندوق 2"
+    else
+        chest2Btn.Text = "❌ غير موجود"
+        task.wait(1)
+        chest2Btn.Text = "انتقال صندوق 2"
+    end
+end)
+
+chest3Btn.MouseButton1Click:Connect(function()
+    if teleportTo("Chest3") then
+        chest3Btn.Text = "✅ تم الصندوق 3"
+        task.wait(1)
+        chest3Btn.Text = "انتقال صندوق 3"
+    else
+        chest3Btn.Text = "❌ غير موجود"
+        task.wait(1)
+        chest3Btn.Text = "انتقال صندوق 3"
+    end
+end)
+
+print("✅ Egg & Chest Teleporter Loaded!")
