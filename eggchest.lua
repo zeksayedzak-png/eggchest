@@ -1,8 +1,8 @@
 --[[
-    EGG & CHEST BRINGER V3 (MOBILE OPTIMIZED)
-    ✅ دقة البحث: DragonEgg & Chests
-    ✅ واجهة صغيرة وقابلة للسحب (Delta Friendly)
-    ✅ جلب العناصر أمام اللاعب مباشرة
+    EGG TELEPORTER V4 (MOBILE)
+    ✅ المهمة: نقل اللاعب إلى مكان البيضة
+    ✅ الهدف: Root (Size: 4, 6, 4)
+    ✅ واجهة صغيرة وقابلة للسحب
 ]]--
 
 local UserInputService = game:GetService("UserInputService")
@@ -11,57 +11,43 @@ local player = Players.LocalPlayer
 
 -- إنشاء الواجهة
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ItemFetcherGui"
+screenGui.Name = "EggTPGui"
 screenGui.Parent = player:WaitForChild("PlayerGui")
 screenGui.ResetOnSpawn = false
 
--- الإطار الرئيسي
+-- الإطار الرئيسي (صغير جداً)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 160, 0, 130)
-mainFrame.Position = UDim2.new(0.5, -80, 0.5, -65)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.Size = UDim2.new(0, 140, 0, 90)
+mainFrame.Position = UDim2.new(0.5, -70, 0.5, -45)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
-title.Text = "📦 مجمع الأدوات"
+title.Text = "🥚 مجمع البيض"
 title.Size = UDim2.new(1, 0, 0, 30)
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
-title.TextSize = 14
+title.TextSize = 13
 title.Parent = mainFrame
 
--- زر جلب البيض
-local eggBtn = Instance.new("TextButton")
-eggBtn.Name = "EggBtn"
-eggBtn.Text = "🥚 جلب البيض"
-eggBtn.Size = UDim2.new(0.9, 0, 0, 35)
-eggBtn.Position = UDim2.new(0.05, 0, 0.28, 0)
-eggBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-eggBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-eggBtn.Font = Enum.Font.GothamBold
-eggBtn.TextSize = 13
-eggBtn.Parent = mainFrame
-Instance.new("UICorner", eggBtn).CornerRadius = UDim.new(0, 6)
-
--- زر جلب الصناديق
-local chestBtn = Instance.new("TextButton")
-chestBtn.Name = "ChestBtn"
-chestBtn.Text = "🎁 جلب الصناديق"
-chestBtn.Size = UDim2.new(0.9, 0, 0, 35)
-chestBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
-chestBtn.BackgroundColor3 = Color3.fromRGB(215, 120, 0)
-chestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-chestBtn.Font = Enum.Font.GothamBold
-chestBtn.TextSize = 13
-chestBtn.Parent = mainFrame
-Instance.new("UICorner", chestBtn).CornerRadius = UDim.new(0, 6)
+-- زر الانتقال
+local tpBtn = Instance.new("TextButton")
+tpBtn.Text = "انتقال للبيضة"
+tpBtn.Size = UDim2.new(0.85, 0, 0, 40)
+tpBtn.Position = UDim2.new(0.075, 0, 0.4, 0)
+tpBtn.BackgroundColor3 = Color3.fromRGB(85, 0, 255)
+tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpBtn.Font = Enum.Font.GothamBold
+tpBtn.TextSize = 14
+tpBtn.Parent = mainFrame
+Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 8)
 
 -- ==================== نظام السحب للجوال ====================
 local dragging, dragStart, startPos
@@ -82,54 +68,40 @@ UserInputService.InputEnded:Connect(function(input)
     dragging = false
 end)
 
--- ==================== وظيفة الجلب العامة ====================
-local function bringItems(targetSize, targetName)
+-- ==================== وظيفة الانتقال للبيضة ====================
+tpBtn.MouseButton1Click:Connect(function()
     local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return 0 end
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     
-    local root = char.HumanoidRootPart
-    local count = 0
+    local hrp = char.HumanoidRootPart
+    local eggSize = Vector3.new(4, 6, 4)
+    local found = false
     
+    -- البحث في الماب عن البيضة
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Name == "Root" then
-            -- التحقق من الحجم (مع هامش خطأ بسيط جداً)
-            local diff = (obj.Size - targetSize).Magnitude
+            -- التأكد من الحجم بدقة
+            local diff = (obj.Size - eggSize).Magnitude
             if diff < 0.1 then
-                count = count + 1
-                -- جلب الجزء أمام اللاعب وتكديسه للأعلى
-                obj.CFrame = root.CFrame * CFrame.new(0, (count * 5) - 2, -7)
-                obj.Anchored = true -- لضمان عدم سقوطها تحت الماب
+                -- الانتقال أمام البيضة بمسافة 3 أمتار
+                hrp.CFrame = obj.CFrame * CFrame.new(0, 0, 3) 
+                found = true
+                break -- التوقف عند أول بيضة يجدها
             end
         end
     end
-    return count
-end
-
--- تشغيل الأزرار
-eggBtn.MouseButton1Click:Connect(function()
-    local eggSize = Vector3.new(4, 6, 4)
-    local found = bringItems(eggSize, "Root")
     
-    if found > 0 then
-        eggBtn.Text = "✅ تم جلب: " .. found
+    if found then
+        tpBtn.Text = "✅ تم الانتقال"
+        tpBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
     else
-        eggBtn.Text = "❌ لم يتم العثور"
+        tpBtn.Text = "❌ لم يتم العثور"
+        tpBtn.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
     end
-    task.wait(1.5)
-    eggBtn.Text = "🥚 جلب البيض"
+    
+    task.wait(1)
+    tpBtn.Text = "انتقال للبيضة"
+    tpBtn.BackgroundColor3 = Color3.fromRGB(85, 0, 255)
 end)
 
-chestBtn.MouseButton1Click:Connect(function()
-    local chestSize = Vector3.new(7.5, 4.5, 6)
-    local found = bringItems(chestSize, "Root")
-    
-    if found > 0 then
-        chestBtn.Text = "✅ تم جلب: " .. found
-    else
-        chestBtn.Text = "❌ لم يتم العثور"
-    end
-    task.wait(1.5)
-    chestBtn.Text = "🎁 جلب الصناديق"
-end)
-
-print("✅ Egg & Chest Bringer Loaded Successfully!")
+print("✅ Egg Teleporter Loaded!")
