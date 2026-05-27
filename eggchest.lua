@@ -1,24 +1,20 @@
 --[[
-    🐝 MOB STICKER & AUTO-ATTACH UI
-    ✅ واجهة متطورة للهواتف (Delta Support)
-    ✅ نظام اختيار الموبات باللمس (Select Mob)
-    ✅ الالتصاق بمركز الموب (Sticky Mode)
-    ✅ التحكم بالسرعة وزر إعادة التعيين
+    💰 TREASURE HUNTER HUB (MOBILE OPTIMIZED)
+    ✅ الانتقال العشوائي للصناديق (SilverChest)
+    ✅ منع التكرار (ينقلك لصندوق مختلف كل مرة)
+    ✅ شريط تحكم بالسرعة (0-100)
+    ✅ متوافق مع Delta & Mobile
 ]]--
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
+local lastChest = nil -- لتخزين آخر صندوق تم الذهاب إليه
 
 -- متغيرات التحكم
-local selectedMob = nil
-local isAttaching = false
 local playerSpeed = 16
-local selectingMode = false
 
--- ==================== دالة السحب (Draggable) ====================
+-- ==================== دالة السحب (Draggable GUI) للهواتف ====================
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
     frame.InputBegan:Connect(function(input)
@@ -46,17 +42,18 @@ local function makeDraggable(frame)
     end)
 end
 
--- ==================== بناء الواجهة ====================
+-- ==================== بناء الواجهة (GUI) ====================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MobStickerHub"
+screenGui.Name = "TreasureSystem"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 220, 0, 300)
+mainFrame.Size = UDim2.new(0, 220, 0, 240)
 mainFrame.Position = UDim2.new(0.5, -110, 0.3, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
@@ -64,194 +61,150 @@ corner.CornerRadius = UDim.new(0, 15)
 corner.Parent = mainFrame
 
 local title = Instance.new("TextLabel")
-title.Text = "🐝 MOB STICKER"
+title.Text = "💎 TREASURE HUB"
 title.Size = UDim2.new(1, 0, 0, 40)
-title.TextColor3 = Color3.fromRGB(255, 215, 0)
+title.TextColor3 = Color3.fromRGB(0, 255, 200)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.GothamBold
 title.TextSize = 18
 title.Parent = mainFrame
 
--- عرض اسم الموب المختار
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Text = "Target: None"
-statusLabel.Size = UDim2.new(1, 0, 0, 30)
-statusLabel.Position = UDim2.new(0, 0, 0.15, 0)
-statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Font = Enum.Font.GothamSemibold
-statusLabel.TextSize = 12
-statusLabel.Parent = mainFrame
+-- زر الانتقال للصندوق (Next Chest)
+local tpButton = Instance.new("TextButton")
+tpButton.Text = "NEXT CHEST 💰"
+tpButton.Size = UDim2.new(0.85, 0, 0, 50)
+tpButton.Position = UDim2.new(0.075, 0, 0.25, 0)
+tpButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+tpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpButton.Font = Enum.Font.GothamBold
+tpButton.TextSize = 14
+tpButton.AutoButtonColor = true
+tpButton.Parent = mainFrame
 
--- زر الاختيار (Select)
-local selectBtn = Instance.new("TextButton")
-selectBtn.Text = "SELECT MOB"
-selectBtn.Size = UDim2.new(0.8, 0, 0, 35)
-selectBtn.Position = UDim2.new(0.1, 0, 0.28, 0)
-selectBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-selectBtn.TextColor3 = Color3.white
-selectBtn.Font = Enum.Font.GothamBold
-selectBtn.Parent = mainFrame
-Instance.new("UICorner", selectBtn).CornerRadius = UDim.new(0, 8)
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 10)
+btnCorner.Parent = tpButton
 
--- زر التشغيل (Toggle On/Off)
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Text = "STICK: OFF"
-toggleBtn.Size = UDim2.new(0.8, 0, 0, 35)
-toggleBtn.Position = UDim2.new(0.1, 0, 0.43, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-toggleBtn.TextColor3 = Color3.white
-toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.Parent = mainFrame
-Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 8)
-
--- زر الريسيرش (Reset)
-local resetBtn = Instance.new("TextButton")
-resetBtn.Text = "RESET TARGET"
-resetBtn.Size = UDim2.new(0.8, 0, 0, 35)
-resetBtn.Position = UDim2.new(0.1, 0, 0.58, 0)
-resetBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-resetBtn.TextColor3 = Color3.white
-resetBtn.Font = Enum.Font.GothamBold
-resetBtn.Parent = mainFrame
-Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 8)
-
--- نظام السرعة
-local speedLabel = Instance.new("TextLabel")
-speedLabel.Text = "WalkSpeed: 16"
-speedLabel.Size = UDim2.new(1, 0, 0, 20)
-speedLabel.Position = UDim2.new(0, 0, 0.75, 0)
-speedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-speedLabel.BackgroundTransparency = 1
-speedLabel.Font = Enum.Font.Gotham
-speedLabel.Parent = mainFrame
+-- نظام السرعة (Slider)
+local speedTitle = Instance.new("TextLabel")
+speedTitle.Text = "Speed: 16"
+speedTitle.Size = UDim2.new(1, 0, 0, 20)
+speedTitle.Position = UDim2.new(0, 0, 0.55, 0)
+speedTitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+speedTitle.BackgroundTransparency = 1
+speedTitle.Font = Enum.Font.Gotham
+speedTitle.Parent = mainFrame
 
 local sliderBack = Instance.new("Frame")
-sliderBack.Size = UDim2.new(0.8, 0, 0, 5)
-sliderBack.Position = UDim2.new(0.1, 0, 0.88, 0)
+sliderBack.Size = UDim2.new(0.8, 0, 0, 6)
+sliderBack.Position = UDim2.new(0.1, 0, 0.75, 0)
 sliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 sliderBack.Parent = mainFrame
 
 local sliderBtn = Instance.new("TextButton")
-sliderBtn.Size = UDim2.new(0, 14, 0, 14)
-sliderBtn.Position = UDim2.new(0.16, -7, 0.5, -7)
-sliderBtn.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+sliderBtn.Size = UDim2.new(0, 20, 0, 20)
+sliderBtn.Position = UDim2.new(0.16, -10, 0.5, -10)
+sliderBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
 sliderBtn.Text = ""
 sliderBtn.Parent = sliderBack
-Instance.new("UICorner", sliderBtn).CornerRadius = UDim.new(1, 0)
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(1, 0)
+sliderCorner.Parent = sliderBtn
 
 makeDraggable(mainFrame)
 
--- ==================== المنطق البرمجي (Logic) ====================
+-- ==================== منطق البرمجة (Logic) ====================
 
--- 1. وظيفة اختيار الموب باللمس
-selectBtn.MouseButton1Click:Connect(function()
-    selectingMode = true
-    selectBtn.Text = "TAP ON A MOB..."
-    selectBtn.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-end)
-
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end -- يمنع الاختيار إذا ضغطت على زر الواجهة
+-- دالة البحث عن الصناديق والانتقال لعشوائي منها
+local function teleportToRandomChest()
+    local treasuresFolder = workspace:FindFirstChild("Interactions") and workspace.Interactions:FindFirstChild("Nodes") and workspace.Interactions.Nodes:FindFirstChild("Treasure")
     
-    if selectingMode and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-        local target = mouse.Target
-        if target then
-            -- البحث عن المودل (الموب)
-            local model = target:FindFirstAncestorOfClass("Model")
-            if model and model:FindFirstChildWhichIsA("Humanoid") then
-                selectedMob = model
-                statusLabel.Text = "Target: " .. model.Name
-                statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
-                selectingMode = false
-                selectBtn.Text = "MOB SELECTED!"
-                selectBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-                task.wait(1)
-                selectBtn.Text = "SELECT MOB"
+    if not treasuresFolder then
+        warn("لم يتم العثور على مجلد الصناديق!")
+        return
+    end
+
+    local allChests = {}
+    
+    -- جمع كل الصناديق المتاحة (SilverChest)
+    for _, folder in pairs(treasuresFolder:GetChildren()) do
+        local lid = folder:FindFirstChild("SilverChest") and folder.SilverChest:FindFirstChild("Lid")
+        if lid then
+            -- التأكد أنه ليس نفس الصندوق الأخير
+            if lid ~= lastChest then
+                table.insert(allChests, lid)
             end
         end
     end
-end)
 
--- 2. زر التشغيل والايقاف
-toggleBtn.MouseButton1Click:Connect(function()
-    if not selectedMob then 
-        statusLabel.Text = "SELECT A MOB FIRST!"
-        task.wait(1)
-        statusLabel.Text = "Target: None"
-        return 
-    end
-    
-    isAttaching = not isAttaching
-    if isAttaching then
-        toggleBtn.Text = "STICK: ON"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    else
-        toggleBtn.Text = "STICK: OFF"
-        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
--- 3. زر الريسيت
-resetBtn.MouseButton1Click:Connect(function()
-    selectedMob = nil
-    isAttaching = false
-    statusLabel.Text = "Target: None"
-    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    toggleBtn.Text = "STICK: OFF"
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-end)
-
--- 4. حلقة الالتصاق (التحديث المستمر)
-RunService.Heartbeat:Connect(function()
-    if isAttaching and selectedMob and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local mobRoot = selectedMob:FindFirstChild("HumanoidRootPart") or selectedMob:FindFirstChild("PrimaryPart") or selectedMob:FindFirstChildWhichIsA("BasePart")
+    -- إذا وجدنا صناديق
+    if #allChests > 0 then
+        local randomChest = allChests[math.random(1, #allChests)]
+        lastChest = randomChest -- تحديث الصندوق الأخير لمنع التكرار
         
-        if mobRoot then
-            -- الالتصاق بمركز الموب بظبط
-            player.Character.HumanoidRootPart.CFrame = mobRoot.CFrame
-        else
-            -- إذا اختفى الموب
-            isAttaching = false
-            statusLabel.Text = "Mob Lost! Resetting..."
-            toggleBtn.Text = "STICK: OFF"
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            -- الانتقال فوق الصندوق بمسافة بسيطة (3 ستود)
+            player.Character.HumanoidRootPart.CFrame = randomChest.CFrame * CFrame.new(0, 3, 0)
+            print("تم الانتقال إلى صندوق جديد: " .. randomChest.Parent.Parent.Name)
         end
+    else
+        -- في حال كان هناك صندوق واحد فقط في الخريطة كلها
+        lastChest = nil
+        print("جاري إعادة البحث عن صناديق...")
     end
+end
+
+-- تفعيل زر التنقل
+tpButton.MouseButton1Click:Connect(function()
+    teleportToRandomChest()
+    -- تأثير بصري بسيط عند الضغط
+    tpButton.Text = "TELEPORTING..."
+    task.wait(0.3)
+    tpButton.Text = "NEXT CHEST 💰"
 end)
 
--- 5. منطق السلايدر (السرعة)
+-- منطق شريط السرعة
 local isSliding = false
+
 local function updateSpeed(input)
     local rect = sliderBack.AbsolutePosition
     local width = sliderBack.AbsoluteSize.X
     local x = math.clamp(input.Position.X - rect.X, 0, width)
     local percentage = x / width
-    sliderBtn.Position = UDim2.new(percentage, -7, 0.5, -7)
+    sliderBtn.Position = UDim2.new(percentage, -10, 0.5, -10)
+    
     playerSpeed = math.floor(percentage * 100)
-    speedLabel.Text = "WalkSpeed: " .. playerSpeed
+    speedTitle.Text = "Speed: " .. playerSpeed
+    
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.WalkSpeed = playerSpeed
     end
 end
 
 sliderBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isSliding = true end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isSliding = true
+    end
 end)
+
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isSliding = false end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isSliding = false
+    end
 end)
+
 UserInputService.InputChanged:Connect(function(input)
     if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         updateSpeed(input)
     end
 end)
 
--- الحفاظ على السرعة عند الموت
+-- الحفاظ على السرعة عند الرسبون
 player.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid")
     task.wait(0.5)
     hum.WalkSpeed = playerSpeed
 end)
 
-print("✅ Mob Sticker Hub Loaded!")
+print("✅ Treasure Script Loaded! Use the button to TP.")
