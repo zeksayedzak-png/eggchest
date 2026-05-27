@@ -1,35 +1,79 @@
 --[[
-    EGG & CHEST TELEPORTER V5 (MOBILE)
-    ✅ المهام: انتقال للبيضة + صندوق 2 + صندوق 3
-    ✅ الأهداف: تخصيص بناءً على الحجم والاسم
-    ✅ واجهة قابلة للسحب للجوال
+    🚀 MOB STICKER & SPEED HUB (V2 - MOBILE OPTIMIZED)
+    ✅ تم الإصلاح: واجهة في المنتصف + قابلة للسحب + حماية من الحذف
 ]]--
 
-local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
 local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
--- إنشاء الواجهة
+-- متغيرات التحكم
+local stickEnabled = false
+local isSelecting = false
+local selectedMob = nil
+local playerSpeed = 16
+
+-- وظيفة تحديد مكان الواجهة لضمان الظهور في Delta
+local function getParent()
+    if gethui then return gethui() end
+    return CoreGui
+end
+
+-- حذف النسخ القديمة لتجنب التكرار
+if getParent():FindFirstChild("MobStickHub") then
+    getParent():FindFirstChild("MobStickHub"):Destroy()
+end
+
+-- ==================== بناء الواجهة (GUI) ====================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "EggChestTPGui"
-screenGui.Parent = player:WaitForChild("PlayerGui")
+screenGui.Name = "MobStickHub"
 screenGui.ResetOnSpawn = false
+screenGui.Parent = getParent()
 
--- الإطار الرئيسي (تم زيادة الطول ليناسب 3 أزرار)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 150, 0, 170)
-mainFrame.Position = UDim2.new(0.5, -75, 0.5, -85)
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 200, 0, 260)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) -- في منتصف الشاشة تماماً
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5) -- نقطة الارتكاز في المنتصف
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = mainFrame
 
+-- وظيفة السحب المتطورة للموبايل
+local function makeDraggable(frame)
+    local dragging, dragInput, dragStart, startPos
+    frame.InputBegan:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = false
+        end
+    end)
+end
+makeDraggable(mainFrame)
+
 local title = Instance.new("TextLabel")
-title.Text = "🥚 مجمع الهدايا"
+title.Text = "🎯 MOB STICKER V2"
 title.Size = UDim2.new(1, 0, 0, 35)
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.BackgroundTransparency = 1
@@ -37,115 +81,141 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.Parent = mainFrame
 
--- وظيفة عامة لإنشاء الأزرار بسهولة
-local function createButton(name, text, color, pos)
-    local btn = Instance.new("TextButton")
-    btn.Name = name
-    btn.Text = text
-    btn.Size = UDim2.new(0.9, 0, 0, 35)
-    btn.Position = pos
-    btn.BackgroundColor3 = color
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
-    btn.Parent = mainFrame
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    return btn
-end
+local mobDisplay = Instance.new("TextLabel")
+mobDisplay.Text = "Target: None"
+mobDisplay.Size = UDim2.new(0.9, 0, 0, 25)
+mobDisplay.Position = UDim2.new(0.05, 0, 0.15, 0)
+mobDisplay.TextColor3 = Color3.fromRGB(255, 200, 0)
+mobDisplay.BackgroundTransparency = 1
+mobDisplay.Font = Enum.Font.GothamMedium
+mobDisplay.TextSize = 12
+mobDisplay.Parent = mainFrame
 
--- الأزرار
-local eggBtn = createButton("EggBtn", "انتقال للبيضة", Color3.fromRGB(85, 0, 255), UDim2.new(0.05, 0, 0.22, 0))
-local chest2Btn = createButton("Chest2Btn", "انتقال صندوق 2", Color3.fromRGB(255, 140, 0), UDim2.new(0.05, 0, 0.48, 0))
-local chest3Btn = createButton("Chest3Btn", "انتقال صندوق 3", Color3.fromRGB(255, 85, 0), UDim2.new(0.05, 0, 0.74, 0))
+-- زر الاختيار
+local selectBtn = Instance.new("TextButton")
+selectBtn.Size = UDim2.new(0.85, 0, 0, 35)
+selectBtn.Position = UDim2.new(0.075, 0, 0.3, 0)
+selectBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 255)
+selectBtn.Text = "SELECT MOB"
+selectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectBtn.Font = Enum.Font.GothamBold
+selectBtn.Parent = mainFrame
 
--- ==================== نظام السحب للجوال ====================
-local dragging, dragStart, startPos
-mainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-    end
+local btnCorner1 = Instance.new("UICorner")
+btnCorner1.Parent = selectBtn
+
+-- زر الالتصاق
+local stickBtn = Instance.new("TextButton")
+stickBtn.Size = UDim2.new(0.85, 0, 0, 35)
+stickBtn.Position = UDim2.new(0.075, 0, 0.47, 0)
+stickBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+stickBtn.Text = "STICK: OFF"
+stickBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+stickBtn.Font = Enum.Font.GothamBold
+stickBtn.Parent = mainFrame
+
+local btnCorner2 = Instance.new("UICorner")
+btnCorner2.Parent = stickBtn
+
+-- السلايدر (السرعة)
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Text = "Speed: 16"
+speedLabel.Size = UDim2.new(1, 0, 0, 20)
+speedLabel.Position = UDim2.new(0, 0, 0.75, 0)
+speedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Parent = mainFrame
+
+local sliderBack = Instance.new("Frame")
+sliderBack.Size = UDim2.new(0.8, 0, 0, 5)
+sliderBack.Position = UDim2.new(0.1, 0, 0.9, 0)
+sliderBack.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+sliderBack.Parent = mainFrame
+
+local sliderBtn = Instance.new("TextButton")
+sliderBtn.Size = UDim2.new(0, 16, 0, 16)
+sliderBtn.Position = UDim2.new(0, 0, 0.5, -8)
+sliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderBtn.Text = ""
+sliderBtn.Parent = sliderBack
+Instance.new("UICorner", sliderBtn).CornerRadius = UDim.new(1, 0)
+
+-- زر التصغير (Toggle Button)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 40, 0, 40)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+toggleBtn.Text = "Menu"
+toggleBtn.TextColor3 = Color3.white
+toggleBtn.Parent = screenGui
+Instance.new("UICorner", toggleBtn)
+
+toggleBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
 end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    dragging = false
+
+-- ==================== الوظائف المنطقية ====================
+
+-- اختيار الموب باللمس
+selectBtn.MouseButton1Click:Connect(function()
+    isSelecting = true
+    selectBtn.Text = "TAP A MOB..."
+    selectBtn.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
 end)
 
--- ==================== وظائف الانتقال ====================
-
-local function teleportTo(targetType)
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local found = false
-    
-    if targetType == "Egg" then
-        -- البحث عن البيضة (Size: 4, 6, 4)
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name == "Root" and (obj.Size - Vector3.new(4, 6, 4)).Magnitude < 0.1 then
-                hrp.CFrame = obj.CFrame * CFrame.new(0, 0, 3)
-                found = true; break
+UserInputService.InputBegan:Connect(function(input)
+    if isSelecting and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1) then
+        local target = mouse.Target
+        if target then
+            local model = target:FindFirstAncestorOfClass("Model")
+            if model then
+                selectedMob = model
+                mobDisplay.Text = "Target: " .. model.Name
+                isSelecting = false
+                selectBtn.Text = "SELECT MOB"
+                selectBtn.BackgroundColor3 = Color3.fromRGB(60, 100, 255)
             end
         end
-    elseif targetType == "Chest2" then
-        -- البحث عن صندوق 2 (Workspace.Chest2.Root)
-        local chest2 = workspace:FindFirstChild("Chest2")
-        if chest2 and chest2:FindFirstChild("Root") then
-            hrp.CFrame = chest2.Root.CFrame * CFrame.new(0, 0, 4)
-            found = true
+    end
+end)
+
+-- الالتصاق
+stickBtn.MouseButton1Click:Connect(function()
+    if not selectedMob then return end
+    stickEnabled = not stickEnabled
+    stickBtn.Text = stickEnabled and "STICK: ON" or "STICK: OFF"
+    stickBtn.BackgroundColor3 = stickEnabled and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+end)
+
+RunService.Heartbeat:Connect(function()
+    if stickEnabled and selectedMob and selectedMob:FindFirstChild("HumanoidRootPart") then
+        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if myRoot then
+            -- الالتصاق فوق رأس الموب بـ 5 بلاطات لضمان عدم حدوث Fling (طيران)
+            myRoot.CFrame = selectedMob.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0)
         end
-    elseif targetType == "Chest3" then
-        -- البحث عن صندوق 3 (Workspace.Chest3.Root)
-        local chest3 = workspace:FindFirstChild("Chest3")
-        if chest3 and chest3:FindFirstChild("Root") then
-            hrp.CFrame = chest3.Root.CFrame * CFrame.new(0, 0, 4)
-            found = true
+    end
+end)
+
+-- السرعة
+local sliding = false
+sliderBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if sliding and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local pos = math.clamp((input.Position.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
+        sliderBtn.Position = UDim2.new(pos, -8, 0.5, -8)
+        playerSpeed = math.floor(pos * 200)
+        speedLabel.Text = "Speed: " .. playerSpeed
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = playerSpeed
         end
     end
-    return found
-end
-
--- برمجة ضغط الأزرار
-eggBtn.MouseButton1Click:Connect(function()
-    if teleportTo("Egg") then
-        eggBtn.Text = "✅ تم"
-        task.wait(1)
-        eggBtn.Text = "انتقال للبيضة"
-    else
-        eggBtn.Text = "❌ غير موجود"
-        task.wait(1)
-        eggBtn.Text = "انتقال للبيضة"
-    end
 end)
 
-chest2Btn.MouseButton1Click:Connect(function()
-    if teleportTo("Chest2") then
-        chest2Btn.Text = "✅ تم الصندوق 2"
-        task.wait(1)
-        chest2Btn.Text = "انتقال صندوق 2"
-    else
-        chest2Btn.Text = "❌ غير موجود"
-        task.wait(1)
-        chest2Btn.Text = "انتقال صندوق 2"
-    end
-end)
-
-chest3Btn.MouseButton1Click:Connect(function()
-    if teleportTo("Chest3") then
-        chest3Btn.Text = "✅ تم الصندوق 3"
-        task.wait(1)
-        chest3Btn.Text = "انتقال صندوق 3"
-    else
-        chest3Btn.Text = "❌ غير موجود"
-        task.wait(1)
-        chest3Btn.Text = "انتقال صندوق 3"
-    end
-end)
-
-print("✅ Egg & Chest Teleporter Loaded!")
+print("✅ DONE! UI CENTERED AND READY.")
